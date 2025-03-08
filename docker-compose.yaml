@@ -1,0 +1,47 @@
+version: '3.7'
+services:
+  fastapi:
+    container_name: fastapi
+    restart: unless-stopped
+    build:
+      context: ./src/fastapi
+      dockerfile: ./Dockerfile
+    ports:
+      - 8000:8000
+    volumes:
+      - shopping_list_data:/code/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 5m
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          memory: 512M  # Limit FastAPI to 512MB RAM
+        reservations:
+          memory: 256M  # Reserve at least 256MB RAM
+
+  caddy:
+    container_name: caddy
+    restart: unless-stopped
+    build:
+      context: ./src/caddy
+      dockerfile: ./Dockerfile
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - ./data/caddy_data:/data
+      - ./data/caddy_config:/config
+    depends_on:
+      - fastapi
+    environment:
+      PROXY_BACKEND: fastapi
+      PROXY_PORT: 8000
+      DOMAIN: ${DOMAIN}
+volumes:
+  caddy_data:
+  caddy_config:
+  shopping_list_data:

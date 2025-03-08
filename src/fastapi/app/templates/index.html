@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopping List App</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" rel="stylesheet">
+    <link rel="manifest" href="/static/manifest.json">
+    <style>
+        body {
+            background-color: #f5f5f5;
+            display: flex;
+            min-height: 100vh;
+            flex-direction: column;
+        }
+        main {
+            flex: 1 0 auto;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+        }
+        .card {
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .card-content {
+            padding: 24px;
+        }
+        .item-list {
+            margin-top: 20px;
+        }
+        .collection-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 20px !important;
+        }
+        .delete-btn {
+            cursor: pointer;
+            color: #e53935;
+            transition: color 0.3s ease;
+        }
+        .delete-btn:hover {
+            color: #c62828;
+        }
+        .btn-floating {
+            margin-left: 10px;
+        }
+        .input-field {
+            margin-bottom: 0;
+        }
+        .app-title {
+            font-weight: 300;
+            text-align: center;
+            margin-bottom: 30px;
+            color: #2196F3;
+        }
+        .input-container {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        .list-empty {
+            text-align: center;
+            padding: 40px 0;
+            color: #9e9e9e;
+        }
+        .toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 9999;
+        }
+        .toast {
+            padding: 12px 24px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .toast.show {
+            opacity: 1;
+        }
+        .toast.success {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .toast.error {
+            background-color: #F44336;
+            color: white;
+        }
+        @media (max-width: 600px) {
+            .app-title {
+                font-size: 2rem;
+            }
+        }
+        .loader {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        .loader .preloader-wrapper {
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <div class="container">
+            <h1 class="app-title">Shopping List</h1>
+            
+            <div class="card">
+                <div class="card-content">
+                    <div id="list-container">
+                        <div id="list-controls" style="display: none;">
+                            <div class="input-container">
+                                <div class="input-field" style="flex-grow: 1;">
+                                    <input type="text" id="item-input" placeholder="Add new item">
+                                </div>
+                                <button id="add-item-btn" class="btn-floating waves-effect waves-light blue">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                            
+                            <div class="item-list">
+                                <ul id="items-collection" class="collection">
+                                    <!-- Items will be added here dynamically -->
+                                </ul>
+                                <div id="empty-list" class="list-empty">
+                                    <i class="fas fa-shopping-basket" style="font-size: 48px; margin-bottom: 15px;"></i>
+                                    <p>Your shopping list is empty</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="list-init">
+                            <p class="center-align">Create a new shopping list to get started</p>
+                            <div class="center-align" style="margin-top: 20px;">
+                                <button id="create-list-btn" class="btn waves-effect waves-light blue">
+                                    <i class="fas fa-list-ul left"></i>
+                                    Create New List
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div id="loader" class="loader">
+                            <div class="preloader-wrapper small active">
+                                <div class="spinner-layer spinner-blue-only">
+                                    <div class="circle-clipper left">
+                                        <div class="circle"></div>
+                                    </div>
+                                    <div class="gap-patch">
+                                        <div class="circle"></div>
+                                    </div>
+                                    <div class="circle-clipper right">
+                                        <div class="circle"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="list-id-container" style="display: none;" class="center-align">
+                <p>Your list ID: <span id="list-id" class="blue-text"></span></p>
+                <button id="copy-list-id" class="btn-small waves-effect waves-light blue lighten-2">
+                    <i class="fas fa-copy left"></i>
+                    Copy page URL
+                </button>
+            </div>
+        </div>
+    </main>
+    
+    <div class="toast-container"></div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <script>
+        let currentListId = null;
+        
+        // DOM elements
+        const listInitSection = document.getElementById('list-init');
+        const listControlsSection = document.getElementById('list-controls');
+        const listIdContainer = document.getElementById('list-id-container');
+        const listIdSpan = document.getElementById('list-id');
+        const createListBtn = document.getElementById('create-list-btn');
+        const addItemBtn = document.getElementById('add-item-btn');
+        const itemInput = document.getElementById('item-input');
+        const itemsCollection = document.getElementById('items-collection');
+        const emptyList = document.getElementById('empty-list');
+        const copyListIdBtn = document.getElementById('copy-list-id');
+        const loader = document.getElementById('loader');
+        
+        // Initialize from URL if list ID is present
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const listId = urlParams.get('list');
+            
+            if (listId) {
+                currentListId = listId;
+                initializeList(listId);
+            }
+            
+            // Register service worker for PWA
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('Service Worker registered with scope:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.error('Service Worker registration failed:', error);
+                    });
+            }
+        });
+        
+        // Create new list
+        createListBtn.addEventListener('click', async () => {
+            showLoader();
+            try {
+                const response = await fetch('/create-list', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                currentListId = data.list_id;
+                
+                // Update URL without reloading
+                const url = new URL(window.location);
+                url.searchParams.set('list', currentListId);
+                window.history.pushState({}, '', url);
+                
+                initializeList(currentListId);
+                showToast('New shopping list created!', 'success');
+            } catch (error) {
+                showToast('Error creating list', 'error');
+                console.error('Error:', error);
+            }
+            hideLoader();
+        });
+        
+        // Add new item
+        addItemBtn.addEventListener('click', addItem);
+        itemInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                addItem();
+            }
+        });
+        
+        // Copy full page URL
+        copyListIdBtn.addEventListener('click', () => {
+            const currentUrl = window.location.href; // Get the full URL
+
+            navigator.clipboard.writeText(currentUrl)
+                .then(() => {
+                    showToast('Page URL copied to clipboard!', 'success');
+                })
+                .catch(err => {
+                    showToast('Failed to copy URL', 'error');
+                    console.error('Error:', err);
+                });
+        });
+        
+        // Initialize list with existing items
+        async function initializeList(listId) {
+            showLoader();
+            listInitSection.style.display = 'none';
+            listControlsSection.style.display = 'block';
+            listIdContainer.style.display = 'block';
+            listIdSpan.textContent = listId;
+            
+            try {
+                await loadItems();
+            } catch (error) {
+                showToast('Error loading items', 'error');
+                console.error('Error:', error);
+            }
+            hideLoader();
+        }
+        
+        // Load items from server
+        async function loadItems() {
+            try {
+                const response = await fetch(`/list/${currentListId}/items`);
+                if (!response.ok) {
+                    throw new Error('Failed to load items');
+                }
+                const items = await response.json();
+                renderItems(items);
+            } catch (error) {
+                console.error('Error loading items:', error);
+                throw error;
+            }
+        }
+        
+        // Render items to DOM
+        function renderItems(items) {
+            itemsCollection.innerHTML = '';
+            
+            if (items.length === 0) {
+                emptyList.style.display = 'block';
+            } else {
+                emptyList.style.display = 'none';
+                
+                items.forEach(item => {
+                    const li = document.createElement('li');
+                    li.className = 'collection-item';
+                    li.innerHTML = `
+                        <span class="item-name">${item.name}</span>
+                        <i class="fas fa-trash delete-btn" data-id="${item.id}"></i>
+                    `;
+                    itemsCollection.appendChild(li);
+                });
+                
+                // Add delete event listeners
+                document.querySelectorAll('.delete-btn').forEach(btn => {
+                    btn.addEventListener('click', deleteItem);
+                });
+            }
+        }
+        
+        // Add item function
+        async function addItem() {
+            const itemName = itemInput.value.trim();
+            if (!itemName) return;
+            
+            showLoader();
+            try {
+                const response = await fetch(`/list/${currentListId}/add-item?name=${encodeURIComponent(itemName)}`, {
+                    method: 'POST'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to add item');
+                }
+                
+                itemInput.value = '';
+                await loadItems();
+                showToast('Item added!', 'success');
+            } catch (error) {
+                showToast('Error adding item', 'error');
+                console.error('Error:', error);
+            }
+            hideLoader();
+        }
+        
+        // Delete item function
+        async function deleteItem(e) {
+            const itemId = e.target.getAttribute('data-id');
+            showLoader();
+            
+            try {
+                const response = await fetch(`/list/${currentListId}/delete-item/${itemId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to delete item');
+                }
+                
+                await loadItems();
+                showToast('Item deleted!', 'success');
+            } catch (error) {
+                showToast('Error deleting item', 'error');
+                console.error('Error:', error);
+            }
+            hideLoader();
+        }
+        
+        // Show toast notification
+        function showToast(message, type = 'success') {
+            const toastContainer = document.querySelector('.toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerText = message;
+            
+            toastContainer.appendChild(toast);
+            
+            // Trigger reflow to enable transition
+            void toast.offsetWidth;
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => {
+                    toastContainer.removeChild(toast);
+                }, 300);
+            }, 3000);
+        }
+        
+        // Show/hide loader
+        function showLoader() {
+            loader.style.display = 'block';
+        }
+        
+        function hideLoader() {
+            loader.style.display = 'none';
+        }
+    </script>
+</body>
+</html>
